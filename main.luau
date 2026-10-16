@@ -25,18 +25,18 @@ local RunService = game:GetService("RunService")
 -- Defaults & Limits
 --------------------------------------------------------------------------------
 local DEFAULTS = {
-    MaxPixels = 10000,
+    MaxPixels = 100000,              -- raised from 10_000
     MaxPaletteSize = 256,
-    MaxDownloadBytes = 2 * 1024 * 1024,
-    Timeout = 15,
-    MaxInstances = 10000,
+    MaxDownloadBytes = 16 * 1024 * 1024, -- raised from 2 MB → 16 MB
+    Timeout = 30,                    -- raised from 15 s
+    MaxInstances = 50000,            -- raised from 10_000
     Scale = 1,
     Parent = nil,
     BackgroundColor3 = Color3.new(0, 0, 0),
     BackgroundTransparency = 1,
     UseRunRectangles = true,
     AllowDownsample = true,
-    DownsampleThreshold = 25000,
+    DownsampleThreshold = 80000,     -- raised with MaxPixels
 }
 
 --------------------------------------------------------------------------------
