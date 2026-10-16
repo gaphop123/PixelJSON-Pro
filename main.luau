@@ -25,18 +25,19 @@ local RunService = game:GetService("RunService")
 -- Defaults & Limits
 --------------------------------------------------------------------------------
 local DEFAULTS = {
-    MaxPixels = 100000,              -- raised from 10_000
+    MaxPixels = 50000,
     MaxPaletteSize = 256,
-    MaxDownloadBytes = 16 * 1024 * 1024, -- raised from 2 MB → 16 MB
-    Timeout = 30,                    -- raised from 15 s
-    MaxInstances = 50000,            -- raised from 10_000
+    MaxDownloadBytes = 16 * 1024 * 1024,
+    Timeout = 30,
+    MaxInstances = 15000,            -- lower default to reduce lag
     Scale = 1,
     Parent = nil,
     BackgroundColor3 = Color3.new(0, 0, 0),
     BackgroundTransparency = 1,
     UseRunRectangles = true,
     AllowDownsample = true,
-    DownsampleThreshold = 80000,     -- raised with MaxPixels
+    DownsampleThreshold = 12000,     -- switch to downsample earlier
+    YieldEvery = 400,                -- instances between task.wait() yields
 }
 
 --------------------------------------------------------------------------------
@@ -255,25 +256,27 @@ end
 --[[
     options = {
         Parent = Instance,          -- required for visible output
-        MaxPixels = number,
-        MaxInstances = number,
-        Scale = number,             -- nearest-neighbor integer scale preferred
+        MaxPixels = number,         -- default 50000
+        MaxInstances = number,      -- default 15000 (lower = less lag)
+        Scale = number,
         Offset = UDim2,
         UseRunRectangles = bool,
         AllowDownsample = bool,
         BackgroundColor3 = Color3,
         BackgroundTransparency = number,
+        YieldEvery = number,        -- yield every N instances (default 400)
     }
     Returns: handle table or nil, error string
+
+    handle methods:
+        handle:Stop()     -- cancel in-progress or finished render, free instances
+        handle:Destroy()  -- same as Stop (alias)
 ]]
 function PixelJSON.Render(data, options)
     options = options or {}
     local parent = options.Parent
-    if not parent or not parent:IsA("GuiObject") and not parent:IsA("Folder") and not parent:IsA("ScreenGui") and not parent:IsA("BillboardGui") and not parent:IsA("SurfaceGui") then
-        -- Allow common containers; be permissive
-        if not parent then
-            return nil, "Render options.Parent is required"
-        end
+    if not parent then
+        return nil, "Render options.Parent is required"
     end
 
     local valid, err = PixelJSON.Validate(data, options)
@@ -288,23 +291,23 @@ function PixelJSON.Render(data, options)
     local scale = math.max(1, math.floor(options.Scale or DEFAULTS.Scale))
     local useRuns = options.UseRunRectangles ~= false
     local allowDown = options.AllowDownsample ~= false
+    local yieldEvery = options.YieldEvery or DEFAULTS.YieldEvery
 
-    -- Decide strategy
+    -- Prefer cheap strategies first to reduce lag
     local strategy = "pixels"
     local effectiveW, effectiveH = width, height
     local blockSize = 1
 
-    if total > maxInst and allowDown then
-        -- Simple block downsample to stay under budget
-        blockSize = math.ceil(math.sqrt(total / maxInst))
+    if useRuns and (data.encoding == "palette-rle" or data.encoding == "row-rle") then
+        strategy = "runs"
+    end
+    if (total > (options.DownsampleThreshold or DEFAULTS.DownsampleThreshold) or total > maxInst) and allowDown then
+        blockSize = math.max(1, math.ceil(math.sqrt(total / math.max(1, maxInst))))
         effectiveW = math.ceil(width / blockSize)
         effectiveH = math.ceil(height / blockSize)
         strategy = "downsample"
-    elseif useRuns and (data.encoding == "palette-rle" or data.encoding == "row-rle") then
-        strategy = "runs"
     end
 
-    -- Container
     local container = Instance.new("Frame")
     container.Name = "PixelJSONImage"
     container.BackgroundColor3 = options.BackgroundColor3 or DEFAULTS.BackgroundColor3
@@ -317,28 +320,74 @@ function PixelJSON.Render(data, options)
     end
     container.Parent = parent
 
-    local instances = { container }
-    local instanceCount = 1
+    local stopped = false
+    local instanceCount = 0
+    local sinceYield = 0
 
-    local function addInstance(inst)
-        instanceCount += 1
-        if instanceCount > maxInst then
-            inst:Destroy()
+    local handle = {
+        Container = container,
+        Width = width,
+        Height = height,
+        Scale = scale,
+        Strategy = strategy,
+        Done = false,
+        Stopped = false,
+    }
+
+    local function stopInternal()
+        if stopped then return end
+        stopped = true
+        handle.Stopped = true
+        handle.Done = true
+        -- Fast path: destroying the container removes all children in one shot
+        if container then
+            pcall(function()
+                container:Destroy()
+            end)
+        end
+        handle.Container = nil
+    end
+
+    handle.Stop = function()
+        stopInternal()
+    end
+    handle.Destroy = function()
+        stopInternal()
+    end
+
+    local function addFrame(frame)
+        if stopped then
+            frame:Destroy()
             return false
         end
-        table.insert(instances, inst)
+        instanceCount += 1
+        if instanceCount > maxInst then
+            frame:Destroy()
+            return false
+        end
+        frame.Parent = container
+        sinceYield += 1
+        if sinceYield >= yieldEvery then
+            sinceYield = 0
+            task.wait() -- yield so the game stays responsive
+            if stopped then
+                return false
+            end
+        end
         return true
     end
 
-    -- Expand or use existing RGBA
+    -- Expand or use existing RGBA (only needed for non-run strategies)
     local rgba = data._rgba
-    if not rgba then
-        local decoded, dErr = PixelJSON.Decode(HttpService:JSONEncode(data), options)
-        if not decoded then
-            container:Destroy()
-            return nil, dErr
+    if strategy ~= "runs" then
+        if not rgba then
+            local decoded, dErr = PixelJSON.Decode(HttpService:JSONEncode(data), options)
+            if not decoded then
+                stopInternal()
+                return nil, dErr
+            end
+            rgba = decoded._rgba
         end
-        rgba = decoded._rgba
     end
 
     local function colorFromRGBA(offset)
@@ -350,13 +399,13 @@ function PixelJSON.Render(data, options)
     end
 
     if strategy == "runs" and data.pixels then
-        -- Reconstruct runs from original pixel stream for efficiency
         local px = 0
         local i = 1
         local pixels = data.pixels
         local palette = data.palette
 
         while i <= #pixels and px < total do
+            if stopped then break end
             local runLen = pixels[i]
             local palIdx = pixels[i + 1]
             i = i + 2
@@ -369,9 +418,9 @@ function PixelJSON.Render(data, options)
             local a = color[4] or 255
             local transparency = 1 - (a / 255)
 
-            -- Split runs that would cross rows for correct positioning
             local remaining = runLen
             while remaining > 0 and px < total do
+                if stopped then break end
                 local row = math.floor(px / width)
                 local col = px % width
                 local room = width - col
@@ -383,10 +432,11 @@ function PixelJSON.Render(data, options)
                 frame.BackgroundTransparency = transparency
                 frame.Size = UDim2.fromOffset(thisRun * scale, scale)
                 frame.Position = UDim2.fromOffset(col * scale, row * scale)
-                frame.Parent = container
 
-                if not addInstance(frame) then
-                    warn("[PixelJSON] Instance budget reached during run rendering")
+                if not addFrame(frame) then
+                    if not stopped then
+                        warn("[PixelJSON] Instance budget reached during run rendering")
+                    end
                     break
                 end
 
@@ -396,8 +446,9 @@ function PixelJSON.Render(data, options)
         end
     elseif strategy == "downsample" then
         for by = 0, effectiveH - 1 do
+            if stopped then break end
             for bx = 0, effectiveW - 1 do
-                -- Average the block (simple box filter)
+                if stopped then break end
                 local sumR, sumG, sumB, sumA, count = 0, 0, 0, 0, 0
                 for dy = 0, blockSize - 1 do
                     for dx = 0, blockSize - 1 do
@@ -424,27 +475,28 @@ function PixelJSON.Render(data, options)
                     frame.BackgroundTransparency = 1 - ((sumA / count) / 255)
                     frame.Size = UDim2.fromOffset(blockSize * scale, blockSize * scale)
                     frame.Position = UDim2.fromOffset(bx * blockSize * scale, by * blockSize * scale)
-                    frame.Parent = container
-                    if not addInstance(frame) then break end
+                    if not addFrame(frame) then break end
                 end
             end
         end
     else
-        -- Individual pixels
         for y = 0, height - 1 do
+            if stopped then break end
             for x = 0, width - 1 do
+                if stopped then break end
                 local off = ((y * width + x) * 4) + 1
                 local col3, trans = colorFromRGBA(off)
-                if trans < 0.99 then -- skip fully transparent to save instances
+                if trans < 0.99 then
                     local frame = Instance.new("Frame")
                     frame.BorderSizePixel = 0
                     frame.BackgroundColor3 = col3
                     frame.BackgroundTransparency = trans
                     frame.Size = UDim2.fromOffset(scale, scale)
                     frame.Position = UDim2.fromOffset(x * scale, y * scale)
-                    frame.Parent = container
-                    if not addInstance(frame) then
-                        warn("[PixelJSON] Instance budget reached")
+                    if not addFrame(frame) then
+                        if not stopped then
+                            warn("[PixelJSON] Instance budget reached")
+                        end
                         break
                     end
                 end
@@ -452,36 +504,36 @@ function PixelJSON.Render(data, options)
         end
     end
 
-    local handle = {
-        Container = container,
-        Instances = instances,
-        Width = width,
-        Height = height,
-        Scale = scale,
-        Strategy = strategy,
-        Destroy = function(self)
-            PixelJSON.Destroy(self)
-        end,
-    }
+    handle.Done = true
+    handle.InstanceCount = instanceCount
+
+    if stopped then
+        return nil, "Render stopped"
+    end
 
     return handle, nil
 end
 
 function PixelJSON.Destroy(handle)
     if type(handle) ~= "table" then return end
-    if handle.Container and handle.Container.Parent then
-        handle.Container:Destroy()
+    if handle.Stop then
+        handle:Stop()
+        return
     end
-    if handle.Instances then
-        for _, inst in ipairs(handle.Instances) do
-            if inst and inst.Parent then
-                pcall(function() inst:Destroy() end)
-            end
-        end
+    -- Fallback for older handles
+    if handle.Container then
+        pcall(function()
+            handle.Container:Destroy()
+        end)
     end
     handle.Container = nil
     handle.Instances = nil
+    handle.Stopped = true
+    handle.Done = true
 end
+
+-- Convenience alias
+PixelJSON.Stop = PixelJSON.Destroy
 
 --------------------------------------------------------------------------------
 -- Remote JSON loading
