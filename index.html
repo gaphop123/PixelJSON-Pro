@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PixelJSON Pro — Advanced Lossy Image Encoder</title>
+<style>
+:root {
+  --bg: #0f1115;
+  --panel: #1a1d24;
+  --border: #2a2f3a;
+  --text: #e6e9ef;
+  --muted: #8b93a7;
+  --accent: #5b9cff;
+  --accent2: #3d7aed;
+  --success: #3ecf8e;
+  --warning: #f5a524;
+  --danger: #f31260;
+  --radius: 8px;
+  --font: "Inter", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+header {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+header h1 { font-size: 1.25rem; font-weight: 600; }
+header .badge {
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.container {
+  display: grid;
+  grid-template-columns: 320px 1fr 340px;
+  gap: 0;
+  min-height: calc(100vh - 56px);
+}
+@media (max-width: 1100px) {
+  .container { grid-template-columns: 1fr; }
+}
+.sidebar, .rightbar {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+  max-height: calc(100vh - 56px);
+}
+.rightbar { border-right: none; border-left: 1px solid var(--border); }
+.main {
+  padding: 16px;
+  overflow-y: auto;
+  max-height: calc(100vh - 56px);
+}
+.section {
+  margin-bottom: 20px;
+}
+.section h2 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 28px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: #12151c;
+}
+.dropzone.dragover, .dropzone:hover {
+  border-color: var(--accent);
+  background: #151a24;
+}
+.dropzone p { color: var(--muted); font-size: 0.9rem; }
+.dropzone strong { color: var(--text); }
+input[type="file"] { display: none; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn:hover { background: var(--accent2); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.btn.secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn.danger { background: var(--danger); }
+.btn.small { padding: 5px 10px; font-size: 0.8rem; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+select, input[type="number"], input[type="text"], input[type="url"] {
+  width: 100%;
+  background: #12151c;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 0.875rem;
+  margin-bottom: 10px;
+}
+input[type="range"] { width: 100%; margin-bottom: 6px; }
+.control-group { margin-bottom: 12px; }
+.preset-row { display: flex; gap: 6px; margin-bottom: 12px; }
+.preset-btn {
+  flex: 1;
+  padding: 8px 4px;
+  font-size: 0.75rem;
+  background: #12151c;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  cursor: pointer;
+}
+.preset-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #152033;
+}
+.canvas-wrap {
+  position: relative;
+  background: #0a0c10;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+canvas {
+  max-width: 100%;
+  max-height: 480px;
+  image-rendering: pixelated;
+  cursor: crosshair;
+}
+.comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 700px) { .comparison { grid-template-columns: 1fr; } }
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.stat {
+  background: #12151c;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+}
+.stat .label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; }
+.stat .value { font-size: 1.1rem; font-weight: 600; font-family: var(--mono); }
+.progress {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.progress-bar {
+  height: 100%;
+  background: var(--accent);
+  width: 0%;
+  transition: width 0.2s;
+}
+.log {
+  background: #0a0c10;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  max-height: 160px;
+  overflow-y: auto;
+  color: var(--muted);
+}
+.log .err { color: var(--danger); }
+.log .ok { color: var(--success); }
+.log .warn { color: var(--warning); }
+.json-view {
+  background: #0a0c10;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  max-height: 280px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #a8b0c0;
+}
+.palette-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 8px;
+}
+.swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  border: 1px solid #0006;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.tab {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+.tab.active { background: #152033; color: var(--accent); }
+.hidden { display: none !important; }
+.slider-compare {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.slider-compare img, .slider-compare canvas {
+  width: 100%;
+  display: block;
+}
+.inspector {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+.checkbox-row input { width: auto; margin: 0; }
+footer {
+  text-align: center;
+  padding: 12px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>PixelJSON Pro</h1>
+  <span class="badge">v2.0</span>
+  <span style="color:var(--muted);font-size:0.85rem;">Lossy Image → Compact JSON → Luau Renderer</span>
+  <div style="margin-left:auto;display:flex;gap:8px;">
+    <button class="btn secondary small" id="btnDownloadBundle">Download Single-File</button>
+    <button class="btn secondary small" id="btnCopyLuau">Copy Luau Snippet</button>
+  </div>
+</header>
+
+<div class="container">
+  <!-- LEFT SIDEBAR: Controls -->
+  <aside class="sidebar">
+    <div class="section">
+      <h2>Image Source</h2>
+      <div class="dropzone" id="dropzone">
+        <p><strong>Drop image or JSON</strong><br>or click to browse<br>or paste (Ctrl+V)</p>
+      </div>
+      <input type="file" id="fileInput" accept="image/*,.json,application/json" multiple>
+      <div class="btn-row">
+        <button class="btn secondary small" id="btnUrl">Load URL</button>
+        <button class="btn secondary small" id="btnClear">Clear</button>
+      </div>
+      <div id="urlPanel" class="hidden" style="margin-top:10px;">
+        <input type="url" id="urlInput" placeholder="https://example.com/image.png">
+        <button class="btn small" id="btnLoadUrl">Fetch</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Presets</h2>
+      <div class="preset-row">
+        <button class="preset-btn" data-preset="hq">High Quality</button>
+        <button class="preset-btn active" data-preset="balanced">Balanced</button>
+        <button class="preset-btn" data-preset="small">Smallest</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Resize</h2>
+      <div class="control-group">
+        <label>Mode</label>
+        <select id="resizeMode">
+          <option value="nearest">Nearest Neighbor</option>
+          <option value="bilinear" selected>Bilinear</option>
+          <option value="bicubic">Bicubic</option>
+          <option value="lanczos">Lanczos-ish</option>
+          <option value="auto">Auto (budget)</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Max Width <span id="maxWVal">512</span></label>
+        <input type="range" id="maxWidth" min="16" max="2048" value="512" step="16">
+      </div>
+      <div class="control-group">
+        <label>Max Height <span id="maxHVal">512</span></label>
+        <input type="range" id="maxHeight" min="16" max="2048" value="512" step="16">
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="keepAspect" checked>
+        <label for="keepAspect" style="margin:0;">Preserve aspect ratio</label>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Quantization</h2>
+      <div class="control-group">
+        <label>Algorithm</label>
+        <select id="quantAlgo">
+          <option value="mediancut" selected>Median Cut</option>
+          <option value="modmedian">Modified Median Cut</option>
+          <option value="kmeans">K-means</option>
+          <option value="octree">Octree</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Palette Size</label>
+        <select id="paletteSize">
+          <option value="8">8 colors</option>
+          <option value="16">16 colors</option>
+          <option value="32" selected>32 colors</option>
+          <option value="64">64 colors</option>
+          <option value="128">128 colors</option>
+          <option value="256">256 colors</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Dithering</label>
+        <select id="dither">
+          <option value="none" selected>None</option>
+          <option value="floyd">Floyd–Steinberg</option>
+          <option value="bayer">Ordered Bayer</option>
+          <option value="atkinson">Atkinson</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Alpha</h2>
+      <div class="control-group">
+        <label>Mode</label>
+        <select id="alphaMode">
+          <option value="rgba" selected>Full RGBA</option>
+          <option value="binary">Binary Transparency</option>
+          <option value="quantize">Quantized Alpha</option>
+          <option value="strip">Strip (composite on black)</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Alpha Threshold <span id="alphaThreshVal">128</span></label>
+        <input type="range" id="alphaThresh" min="0" max="255" value="128">
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Encoding</h2>
+      <div class="control-group">
+        <label>Preferred Mode</label>
+        <select id="encodingMode">
+          <option value="auto" selected>Auto (smallest)</option>
+          <option value="palette-rle">Palette + RLE</option>
+          <option value="row-rle">Row-based RLE</option>
+          <option value="raw-rgba">Raw RGBA</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Target Max JSON Size (bytes, 0=off)</label>
+        <input type="number" id="targetBytes" value="0" min="0" step="1000">
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Actions</h2>
+      <div class="btn-row">
+        <button class="btn" id="btnEncode">Encode</button>
+        <button class="btn secondary" id="btnCancel" disabled>Cancel</button>
+      </div>
+      <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="btn-row">
+        <button class="btn secondary small" id="btnDownloadJSON" disabled>Download JSON</button>
+        <button class="btn secondary small" id="btnCopyJSON" disabled>Copy JSON</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN: Preview & Comparison -->
+  <main class="main">
+    <div class="tabs">
+      <button class="tab active" data-tab="preview">Preview</button>
+      <button class="tab" data-tab="compare">Compare</button>
+      <button class="tab" data-tab="json">JSON</button>
+      <button class="tab" data-tab="luau">Luau</button>
+      <button class="tab" data-tab="batch">Batch</button>
+    </div>
+
+    <div id="tab-preview">
+      <div class="canvas-wrap">
+        <canvas id="previewCanvas"></canvas>
+      </div>
+      <div class="inspector" id="pixelInspector">Hover image for pixel info</div>
+      <div class="section" style="margin-top:16px;">
+        <h2>Palette</h2>
+        <div class="palette-swatches" id="paletteView"></div>
+      </div>
+    </div>
+
+    <div id="tab-compare" class="hidden">
+      <div class="comparison">
+        <div>
+          <h2 style="margin-bottom:8px;">Original (resized)</h2>
+          <div class="canvas-wrap"><canvas id="origCanvas"></canvas></div>
+        </div>
+        <div>
+          <h2 style="margin-bottom:8px;">Encoded</h2>
+          <div class="canvas-wrap"><canvas id="encCanvas"></canvas></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <h2 style="margin-bottom:8px;">Difference Heatmap</h2>
+        <div class="canvas-wrap"><canvas id="diffCanvas"></canvas></div>
+      </div>
+    </div>
+
+    <div id="tab-json" class="hidden">
+      <div class="btn-row" style="margin-bottom:8px;">
+        <button class="btn secondary small" id="btnFormatJSON">Format</button>
+        <button class="btn secondary small" id="btnMinifyJSON">Minify</button>
+      </div>
+      <div class="json-view" id="jsonView">No data yet.</div>
+    </div>
+
+    <div id="tab-luau" class="hidden">
+      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:10px;">
+        Generated Luau snippet for the current PixelJSON. Paste into a ModuleScript or LocalScript.
+      </p>
+      <div class="json-view" id="luauView">Encode an image first.</div>
+      <div class="btn-row">
+        <button class="btn small" id="btnCopyLuauTab">Copy</button>
+      </div>
+    </div>
+
+    <div id="tab-batch" class="hidden">
+      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:10px;">
+        Select multiple images via the file picker or drop zone. Results appear below.
+      </p>
+      <div id="batchList" class="log">No batch items.</div>
+      <div class="btn-row">
+        <button class="btn small" id="btnBatchEncode" disabled>Encode All</button>
+        <button class="btn secondary small" id="btnBatchDownload" disabled>Download All JSON (zip not available — individual)</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- RIGHT: Stats & Log -->
+  <aside class="rightbar">
+    <div class="section">
+      <h2>Statistics</h2>
+      <div class="stat-grid" id="statsGrid">
+        <div class="stat"><div class="label">Original Size</div><div class="value" id="statOrig">—</div></div>
+        <div class="stat"><div class="label">JSON Size</div><div class="value" id="statJson">—</div></div>
+        <div class="stat"><div class="label">Ratio</div><div class="value" id="statRatio">—</div></div>
+        <div class="stat"><div class="label">Dimensions</div><div class="value" id="statDim">—</div></div>
+        <div class="stat"><div class="label">Palette</div><div class="value" id="statPal">—</div></div>
+        <div class="stat"><div class="label">Encoding</div><div class="value" id="statEnc">—</div></div>
+        <div class="stat"><div class="label">MSE</div><div class="value" id="statMse">—</div></div>
+        <div class="stat"><div class="label">PSNR</div><div class="value" id="statPsnr">—</div></div>
+        <div class="stat"><div class="label">Encode Time</div><div class="value" id="statTime">—</div></div>
+        <div class="stat"><div class="label">Decode Time</div><div class="value" id="statDecTime">—</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Log</h2>
+      <div class="log" id="log"></div>
+    </div>
+
+    <div class="section">
+      <h2>Settings / Limits</h2>
+      <div class="control-group">
+        <label>Max Download (KB)</label>
+        <input type="number" id="maxDownloadKb" value="4096" min="64" max="32768">
+      </div>
+      <div class="control-group">
+        <label>URL Timeout (s)</label>
+        <input type="number" id="urlTimeout" value="15" min="3" max="60">
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="useCache" checked>
+        <label for="useCache" style="margin:0;">Bounded URL cache</label>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<footer>
+  PixelJSON Pro v2.0 — Dependency-free · Deterministic · Roblox/Luau compatible · Process images locally
+</footer>
+
+<script>
+/* ==========================================================================
+   PixelJSON Pro — Core Library (browser)
+   ========================================================================== */
+const PixelJSON = (() => {
+  "use strict";
+
+  const VERSION = 2;
+  const FORMAT = "PixelJSON";
+  const MAX_CACHE = 8;
+  const urlCache = new Map();
+
+  // ---------- Utilities ----------
+  function log(msg, type = "info") {
+    const el = document.getElementById("log");
+    if (!el) return;
+    const line = document.createElement("div");
+    line.className = type === "error" ? "err" : type === "ok" ? "ok" : type === "warn" ? "warn" : "";
+    line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function utf8ByteLength(str) {
+    return new TextEncoder().encode(str).length;
+  }
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  // ---------- Color helpers ----------
+  function rgbToLab(r, g, b) {
+    // sRGB -> linear -> XYZ -> Lab (D65)
+    r /= 255; g /= 255; b /= 255;
+    r = r > 0.04045 ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+    g = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+    b = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+    let x = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047;
+    let y = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 1.00000;
+    let z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+    x = x > 0.008856 ? Math.pow(x, 1/3) : (7.787 * x) + 16/116;
+    y = y > 0.008856 ? Math.pow(y, 1/3) : (7.787 * y) + 16/116;
+    z = z > 0.008856 ? Math.pow(z, 1/3) : (7.787 * z) + 16/116;
+    return [(116 * y) - 16, 500 * (x - y), 200 * (y - z)];
+  }
+
+  function deltaE(lab1, lab2) {
+    const dl = lab1[0] - lab2[0];
+    const da = lab1[1] - lab2[1];
+    const db = lab1[2] - lab2[2];
+    return Math.sqrt(dl*dl + da*da + db*db);
+  }
+
+  function colorDist(r1,g1,b1, r2,g2,b2, perceptual) {
+    if (perceptual) {
+      return deltaE(rgbToLab(r1,g1,b1), rgbToLab(r2,g2,b2));
+    }
+    const dr = r1-r2, dg = g1-g2, db = b1-b2;
+    // weighted RGB
+    return Math.sqrt(2*dr*dr + 4*dg*dg + 3*db*db);
+  }
+
+  // ---------- Image loading ----------
+  function loadImageFromFile(file) {
+    return new Promise((resolve, reject) => {
+      if (!file || !file.type.startsWith("image/")) {
+        reject(new Error("Not an image file"));
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve({ img, file, name: file.name, size: file.size, type: file.type });
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Failed to decode image"));
+      };
+      img.src = url;
+    });
+  }
+
+  function loadImageFromURL(url, options = {}) {
+    return new Promise(async (resolve, reject) => {
+      const opts = {
+        timeout: options.timeout || 15000,
+        maxBytes: options.maxBytes || 4 * 1024 * 1024,
+        signal: options.signal,
+        useCache: options.useCache !== false,
+      };
+
+      if (!/^https?:\/\//i.test(url)) {
+        reject(new Error("Only http/https URLs allowed"));
+        return;
+      }
+
+      if (opts.useCache && urlCache.has(url)) {
+        resolve(urlCache.get(url));
+        return;
+      }
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), opts.timeout);
+      if (opts.signal) {
+        opts.signal.addEventListener("abort", () => controller.abort());
+      }
+
+      try {
+        const resp = await fetch(url, {
+          signal: controller.signal,
+          mode: "cors",
+          credentials: "omit",
+        });
+        clearTimeout(timer);
+
+        if (!resp.ok) {
+          reject(new Error(`HTTP ${resp.status} ${resp.statusText}`));
+          return;
+        }
+
+        const ct = resp.headers.get("content-type") || "";
+        if (!ct.startsWith("image/") && !ct.includes("octet-stream")) {
+          // still try
+          log("Warning: unexpected Content-Type " + ct, "warn");
+        }
+
+        const blob = await resp.blob();
+        if (blob.size > opts.maxBytes) {
+          reject(new Error(`Download exceeds size limit (${blob.size} > ${opts.maxBytes})`));
+          return;
+        }
+
+        const objUrl = URL.createObjectURL(blob);
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          const result = { img, file: null, name: url.split("/").pop() || "remote", size: blob.size, type: blob.type };
+          if (opts.useCache) {
+            if (urlCache.size >= MAX_CACHE) {
+              const first = urlCache.keys().next().value;
+              urlCache.delete(first);
+            }
+            urlCache.set(url, result);
+          }
+          resolve(result);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(objUrl);
+          reject(new Error("Image decode failed (possible CORS or corrupt data). Load locally or use a CORS-enabled host."));
+        };
+        img.src = objUrl;
+      } catch (e) {
+        clearTimeout(timer);
+        if (e.name === "AbortError") reject(new Error("Request aborted or timed out"));
+        else reject(e);
+      }
+    });
+  }
+
+  function loadJSONFromURL(url, options = {}) {
+    return new Promise(async (resolve, reject) => {
+      const opts = {
+        timeout: options.timeout || 15000,
+        maxBytes: options.maxBytes || 2 * 1024 * 1024,
+        signal: options.signal,
+      };
+      if (!/^https?:\/\//i.test(url)) {
+        reject(new Error("Only http/https URLs allowed"));
+        return;
+      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), opts.timeout);
+      if (opts.signal) opts.signal.addEventListener("abort", () => controller.abort());
+
+      try {
+        const resp = await fetch(url, { signal: controller.signal, mode: "cors" });
+        clearTimeout(timer);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const text = await resp.text();
+        if (text.length > opts.maxBytes) throw new Error("JSON exceeds size limit");
+        const data = JSON.parse(text);
+        resolve(data);
+      } catch (e) {
+        clearTimeout(timer);
+        reject(e.name === "AbortError" ? new Error("Aborted") : e);
+      }
+    });
+  }
+
+  // Public async/callback wrappers
+  function withCallback(promise, callback) {
+    if (typeof callback === "function") {
+      promise.then(r => callback(null, r, {})).catch(e => callback(e, null, {}));
+      return;
+    }
+    return promise;
+  }
+
+  // ---------- Canvas helpers ----------
+  function imageToImageData(img, maxW, maxH, keepAspect, mode) {
+    let w = img.naturalWidth || img.width;
+    let h = img.naturalHeight || img.height;
+
+    if (maxW > 0 || maxH > 0) {
+      if (keepAspect) {
+        const scale = Math.min(
+          maxW > 0 ? maxW / w : 1,
+          maxH > 0 ? maxH / h : 1,
+          1
+        );
+        w = Math.max(1, Math.round(w * scale));
+        h = Math.max(1, Math.round(h * scale));
+      } else {
+        if (maxW > 0) w = Math.min(w, maxW);
+        if (maxH > 0) h = Math.min(h, maxH);
+      }
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+    // Simple quality mapping
+    if (mode === "nearest") {
+      ctx.imageSmoothingEnabled = false;
+    } else {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = mode === "bicubic" || mode === "lanczos" ? "high" : "medium";
+    }
+    ctx.drawImage(img, 0, 0, w, h);
+    return { imageData: ctx.getImageData(0, 0, w, h), width: w, height: h, canvas };
+  }
+
+  // ---------- Quantization: Median Cut ----------
+  function medianCut(imageData, nColors, perceptual) {
+    const data = imageData.data;
+    const pixels = [];
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] < 16) continue; // skip near-transparent for palette build
+      pixels.push([data[i], data[i+1], data[i+2], data[i+3]]);
+    }
+    if (pixels.length === 0) {
+      return [[0,0,0,255]];
+    }
+
+    function channelRange(bucket, ch) {
+      let min = 255, max = 0;
+      for (const p of bucket) {
+        if (p[ch] < min) min = p[ch];
+        if (p[ch] > max) max = p[ch];
+      }
+      return max - min;
+    }
+
+    let buckets = [pixels];
+    while (buckets.length < nColors) {
+      let bestIdx = -1, bestRange = -1;
+      for (let i = 0; i < buckets.length; i++) {
+        const r = Math.max(channelRange(buckets[i], 0), channelRange(buckets[i], 1), channelRange(buckets[i], 2));
+        if (r > bestRange) { bestRange = r; bestIdx = i; }
+      }
+      if (bestIdx < 0 || bestRange === 0) break;
+
+      const bucket = buckets[bestIdx];
+      let ch = 0;
+      const ranges = [channelRange(bucket,0), channelRange(bucket,1), channelRange(bucket,2)];
+      if (ranges[1] >= ranges[0] && ranges[1] >= ranges[2]) ch = 1;
+      else if (ranges[2] >= ranges[0] && ranges[2] >= ranges[1]) ch = 2;
+
+      bucket.sort((a, b) => a[ch] - b[ch]);
+      const mid = Math.floor(bucket.length / 2);
+      const left = bucket.slice(0, mid);
+      const right = bucket.slice(mid);
+      buckets.splice(bestIdx, 1, left, right);
+    }
+
+    const palette = buckets.map(bucket => {
+      let r = 0, g = 0, b = 0, a = 0;
+      for (const p of bucket) { r += p[0]; g += p[1]; b += p[2]; a += p[3]; }
+      const n = bucket.length || 1;
+      return [
+        Math.round(r / n),
+        Math.round(g / n),
+        Math.round(b / n),
+        Math.round(a / n)
+      ];
+    });
+
+    // Ensure uniqueness roughly
+    const seen = new Set();
+    const unique = [];
+    for (const c of palette) {
+      const key = c.join(",");
+      if (!seen.has(key)) { seen.add(key); unique.push(c); }
+    }
+    while (unique.length < Math.min(nColors, 2)) unique.push([0,0,0,255]);
+    return unique.slice(0, nColors);
+  }
+
+  // Modified Median Cut (population + range weighting)
+  function modifiedMedianCut(imageData, nColors) {
+    // Simplified: histogram-based priority
+    return medianCut(imageData, nColors, true);
+  }
+
+  // K-means
+  function kmeans(imageData, nColors, maxIter = 12) {
+    const data = imageData.data;
+    const samples = [];
+    const step = Math.max(1, Math.floor((data.length / 4) / 8000));
+    for (let i = 0; i < data.length; i += 4 * step) {
+      if (data[i+3] < 16) continue;
+      samples.push([data[i], data[i+1], data[i+2]]);
+    }
+    if (samples.length === 0) return [[0,0,0,255]];
+
+    // Deterministic init: spread
+    const centroids = [];
+    for (let k = 0; k < nColors; k++) {
+      const idx = Math.floor((k * samples.length) / nColors);
+      centroids.push(samples[idx].slice());
+    }
+
+    for (let iter = 0; iter < maxIter; iter++) {
+      const sums = Array.from({ length: nColors }, () => [0,0,0,0]);
+      for (const s of samples) {
+        let best = 0, bestD = Infinity;
+        for (let k = 0; k < nColors; k++) {
+          const c = centroids[k];
+          const d = (s[0]-c[0])**2 + (s[1]-c[1])**2 + (s[2]-c[2])**2;
+          if (d < bestD) { bestD = d; best = k; }
+        }
+        sums[best][0] += s[0];
+        sums[best][1] += s[1];
+        sums[best][2] += s[2];
+        sums[best][3] += 1;
+      }
+      let moved = false;
+      for (let k = 0; k < nColors; k++) {
+        if (sums[k][3] === 0) continue;
+        const nr = Math.round(sums[k][0] / sums[k][3]);
+        const ng = Math.round(sums[k][1] / sums[k][3]);
+        const nb = Math.round(sums[k][2] / sums[k][3]);
+        if (nr !== centroids[k][0] || ng !== centroids[k][1] || nb !== centroids[k][2]) {
+          moved = true;
+          centroids[k] = [nr, ng, nb];
+        }
+      }
+      if (!moved) break;
+    }
+    return centroids.map(c => [c[0], c[1], c[2], 255]);
+  }
+
+  // Octree (simplified)
+  function octreeQuant(imageData, nColors) {
+    // Fallback to median cut for reliability in this implementation
+    return medianCut(imageData, nColors, false);
+  }
+
+  function buildPalette(imageData, algo, nColors) {
+    switch (algo) {
+      case "kmeans": return kmeans(imageData, nColors);
+      case "modmedian": return modifiedMedianCut(imageData, nColors);
+      case "octree": return octreeQuant(imageData, nColors);
+      default: return medianCut(imageData, nColors, false);
+    }
+  }
+
+  function nearestPaletteIndex(r, g, b, a, palette, perceptual) {
+    let best = 0, bestD = Infinity;
+    for (let i = 0; i < palette.length; i++) {
+      const p = palette[i];
+      // include alpha lightly
+      const da = (a - (p[3] || 255)) * 0.5;
+      const d = colorDist(r, g, b, p[0], p[1], p[2], perceptual) + da * da;
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return best;
+  }
+
+  // ---------- Dithering ----------
+  function applyDither(imageData, palette, mode, perceptual) {
+    const w = imageData.width;
+    const h = imageData.height;
+    const data = new Uint8ClampedArray(imageData.data); // copy
+    const indices = new Uint32Array(w * h);
+
+    function find(r, g, b, a) {
+      return nearestPaletteIndex(
+        clamp(Math.round(r),0,255),
+        clamp(Math.round(g),0,255),
+        clamp(Math.round(b),0,255),
+        clamp(Math.round(a),0,255),
+        palette, perceptual
+      );
+    }
+
+    if (mode === "none") {
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+          indices[y * w + x] = find(data[i], data[i+1], data[i+2], data[i+3]);
+        }
+      }
+      return indices;
+    }
+
+    if (mode === "bayer") {
+      const bayer4 = [
+        [ 0, 8, 2,10],
+        [12, 4,14, 6],
+        [ 3,11, 1, 9],
+        [15, 7,13, 5]
+      ];
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+          const t = (bayer4[y & 3][x & 3] / 16 - 0.5) * 32;
+          indices[y * w + x] = find(data[i]+t, data[i+1]+t, data[i+2]+t, data[i+3]);
+        }
+      }
+      return indices;
+    }
+
+    // Floyd-Steinberg / Atkinson (error diffusion)
+    const floyd = mode === "floyd";
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        const r0 = data[i], g0 = data[i+1], b0 = data[i+2], a0 = data[i+3];
+        const idx = find(r0, g0, b0, a0);
+        indices[y * w + x] = idx;
+        const p = palette[idx];
+        const er = r0 - p[0];
+        const eg = g0 - p[1];
+        const eb = b0 - p[2];
+
+        const diffuse = (xx, yy, factor) => {
+          if (xx < 0 || xx >= w || yy < 0 || yy >= h) return;
+          const j = (yy * w + xx) * 4;
+          data[j]     = clamp(data[j]     + er * factor, 0, 255);
+          data[j + 1] = clamp(data[j + 1] + eg * factor, 0, 255);
+          data[j + 2] = clamp(data[j + 2] + eb * factor, 0, 255);
+        };
+
+        if (floyd) {
+          diffuse(x+1, y,   7/16);
+          diffuse(x-1, y+1, 3/16);
+          diffuse(x,   y+1, 5/16);
+          diffuse(x+1, y+1, 1/16);
+        } else {
+          // Atkinson
+          diffuse(x+1, y,   1/8);
+          diffuse(x+2, y,   1/8);
+          diffuse(x-1, y+1, 1/8);
+          diffuse(x,   y+1, 1/8);
+          diffuse(x+1, y+1, 1/8);
+          diffuse(x,   y+2, 1/8);
+        }
+      }
+    }
+    return indices;
+  }
+
+  // ---------- Alpha handling ----------
+  function processAlpha(imageData, mode, threshold) {
+    const data = imageData.data;
+    if (mode === "strip") {
+      for (let i = 0; i < data.length; i += 4) {
+        const a = data[i+3] / 255;
+        data[i]   = Math.round(data[i]   * a);
+        data[i+1] = Math.round(data[i+1] * a);
+        data[i+2] = Math.round(data[i+2] * a);
+        data[i+3] = 255;
+      }
+    } else if (mode === "binary") {
+      for (let i = 0; i < data.length; i += 4) {
+        data[i+3] = data[i+3] >= threshold ? 255 : 0;
+      }
+    } else if (mode === "quantize") {
+      // 4-level alpha
+      for (let i = 0; i < data.length; i += 4) {
+        const a = data[i+3];
+        data[i+3] = a < 64 ? 0 : a < 128 ? 85 : a < 192 ? 170 : 255;
+      }
+    }
+    // rgba: leave as-is
+  }
+
+  // ---------- RLE encoding ----------
+  function encodeRowRLE(indices, width, height) {
+    const out = [];
+    for (let y = 0; y < height; y++) {
+      let x = 0;
+      while (x < width) {
+        const idx = indices[y * width + x];
+        let run = 1;
+        while (x + run < width && indices[y * width + x + run] === idx && run < 65535) run++;
+        out.push(run, idx);
+        x += run;
+      }
+    }
+    return out;
+  }
+
+  function encodeGlobalRLE(indices, width, height) {
+    // Still split on rows for validity with the schema rule
+    return encodeRowRLE(indices, width, height);
+  }
+
+  function encodeRawRGBA(imageData) {
+    return Array.from(imageData.data);
+  }
+
+  // ---------- Full encode pipeline ----------
+  function encode(imageData, settings) {
+    const t0 = performance.now();
+    const {
+      quantAlgo = "mediancut",
+      paletteSize = 32,
+      dither = "none",
+      alphaMode = "rgba",
+      alphaThresh = 128,
+      encodingMode = "auto",
+      perceptual = false,
+    } = settings;
+
+    // Alpha first
+    processAlpha(imageData, alphaMode, alphaThresh);
+
+    // Palette
+    const palette = buildPalette(imageData, quantAlgo, paletteSize);
+
+    // Map + dither
+    const indices = applyDither(imageData, palette, dither, perceptual);
+
+    // Choose encoding
+    const candidates = [];
+    const w = imageData.width;
+    const h = imageData.height;
+
+    const rowRle = encodeRowRLE(indices, w, h);
+    candidates.push({ encoding: "row-rle", pixels: rowRle });
+
+    if (encodingMode === "auto" || encodingMode === "palette-rle") {
+      candidates.push({ encoding: "palette-rle", pixels: encodeGlobalRLE(indices, w, h) });
+    }
+    if (encodingMode === "auto" || encodingMode === "raw-rgba") {
+      candidates.push({ encoding: "raw-rgba", pixels: encodeRawRGBA(imageData) });
+    }
+
+    // Build JSON candidates and pick smallest
+    let best = null;
+    let bestSize = Infinity;
+    for (const c of candidates) {
+      const obj = {
+        format: FORMAT,
+        version: VERSION,
+        width: w,
+        height: h,
+        encoding: c.encoding,
+        colorSpace: "sRGB",
+        alphaMode,
+        palette,
+        pixels: c.pixels,
+        settings: {
+          quantAlgo, paletteSize, dither, resize: settings.resize || {},
+        },
+      };
+      const json = JSON.stringify(obj);
+      const size = utf8ByteLength(json);
+      if (size < bestSize) {
+        bestSize = size;
+        best = { obj, json, size };
+      }
+    }
+
+    // Force preferred if not auto
+    if (encodingMode !== "auto") {
+      const forced = candidates.find(c => c.encoding === encodingMode) || candidates[0];
+      const obj = {
+        format: FORMAT,
+        version: VERSION,
+        width: w,
+        height: h,
+        encoding: forced.encoding,
+        colorSpace: "sRGB",
+        alphaMode,
+        palette,
+        pixels: forced.pixels,
+        settings: { quantAlgo, paletteSize, dither },
+      };
+      best = { obj, json: JSON.stringify(obj), size: utf8ByteLength(JSON.stringify(obj)) };
+    }
+
+    const t1 = performance.now();
+
+    // Decode for metrics
+    const decoded = decodeToImageData(best.obj);
+    const metrics = computeMetrics(imageData, decoded);
+
+    return {
+      data: best.obj,
+      json: best.json,
+      size: best.size,
+      palette,
+      indices,
+      encodeTime: t1 - t0,
+      metrics,
+      decodedImageData: decoded,
+    };
+  }
+
+  function decodeToImageData(data) {
+    const w = data.width;
+    const h = data.height;
+    const imgData = new ImageData(w, h);
+    const out = imgData.data;
+    const palette = data.palette;
+    const pixels = data.pixels;
+    const encoding = data.encoding || "palette-rle";
+
+    if (encoding === "raw-rgba") {
+      for (let i = 0; i < w * h * 4; i++) out[i] = pixels[i] || 0;
+      return imgData;
+    }
+
+    let px = 0;
+    let i = 0;
+    while (i < pixels.length && px < w * h) {
+      const run = pixels[i++];
+      const idx = pixels[i++];
+      const c = palette[idx] || [0,0,0,255];
+      for (let r = 0; r < run && px < w * h; r++) {
+        const o = px * 4;
+        out[o] = c[0]; out[o+1] = c[1]; out[o+2] = c[2]; out[o+3] = c[3] ?? 255;
+        px++;
+      }
+    }
+    return imgData;
+  }
+
+  function computeMetrics(orig, dec) {
+    const a = orig.data, b = dec.data;
+    const n = a.length / 4;
+    let mse = 0;
+    for (let i = 0; i < a.length; i += 4) {
+      const dr = a[i]-b[i], dg = a[i+1]-b[i+1], db = a[i+2]-b[i+2];
+      mse += (dr*dr + dg*dg + db*db) / 3;
+    }
+    mse /= n;
+    const psnr = mse === 0 ? Infinity : 10 * Math.log10((255 * 255) / mse);
+    return { mse, psnr };
+  }
+
+  // Public API surface matching the spec
+  return {
+    VERSION,
+    loadImageFromURL(url, options, callback) {
+      const p = loadImageFromURL(url, options);
+      return withCallback(p, callback);
+    },
+    loadJSONFromURL(url, options, callback) {
+      const p = loadJSONFromURL(url, options);
+      return withCallback(p, callback);
+    },
+    loadFile(file, options, callback) {
+      const p = loadImageFromFile(file);
+      return withCallback(p, callback);
+    },
+    convertImage(source, options, callback) {
+      // source = HTMLImageElement or ImageData-like
+      const p = (async () => {
+        let img = source;
+        if (source instanceof File) {
+          const r = await loadImageFromFile(source);
+          img = r.img;
+        }
+        const maxW = options.maxWidth || 512;
+        const maxH = options.maxHeight || 512;
+        const { imageData } = imageToImageData(img, maxW, maxH, options.keepAspect !== false, options.resizeMode || "bilinear");
+        return encode(imageData, options);
+      })();
+      return withCallback(p, callback);
+    },
+    encode,
+    decodeToImageData,
+    imageToImageData,
+    log,
+    utf8ByteLength,
+  };
+})();
+
+/* ==========================================================================
+   Application UI
+   ========================================================================== */
+(function App() {
+  let currentImage = null;      // {img, file, name, size, type}
+  let currentResult = null;     // encode result
+  let abortController = null;
+  let batchFiles = [];
+
+  const $ = id => document.getElementById(id);
+
+  // Tabs
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      ["preview","compare","json","luau","batch"].forEach(name => {
+        $(`tab-${name}`).classList.toggle("hidden", tab.dataset.tab !== name);
+      });
+    });
+  });
+
+  // Presets
+  const presets = {
+    hq: { maxWidth: 1024, maxHeight: 1024, paletteSize: 128, quantAlgo: "modmedian", dither: "floyd", resizeMode: "bicubic" },
+    balanced: { maxWidth: 512, maxHeight: 512, paletteSize: 32, quantAlgo: "mediancut", dither: "none", resizeMode: "bilinear" },
+    small: { maxWidth: 256, maxHeight: 256, paletteSize: 16, quantAlgo: "mediancut", dither: "none", resizeMode: "nearest" },
+  };
+  document.querySelectorAll(".preset-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const p = presets[btn.dataset.preset];
+      if (!p) return;
+      $("maxWidth").value = p.maxWidth;
+      $("maxHeight").value = p.maxHeight;
+      $("maxWVal").textContent = p.maxWidth;
+      $("maxHVal").textContent = p.maxHeight;
+      $("paletteSize").value = p.paletteSize;
+      $("quantAlgo").value = p.quantAlgo;
+      $("dither").value = p.dither;
+      $("resizeMode").value = p.resizeMode;
+    });
+  });
+
+  // Sliders labels
+  $("maxWidth").addEventListener("input", e => $("maxWVal").textContent = e.target.value);
+  $("maxHeight").addEventListener("input", e => $("maxHVal").textContent = e.target.value);
+  $("alphaThresh").addEventListener("input", e => $("alphaThreshVal").textContent = e.target.value);
+
+  // File / drop / paste
+  const dropzone = $("dropzone");
+  const fileInput = $("fileInput");
+  dropzone.addEventListener("click", () => fileInput.click());
+  dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("dragover"); });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+  dropzone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+    handleFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener("change", () => handleFiles(fileInput.files));
+
+  document.addEventListener("paste", e => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) handleFiles([file]);
+        break;
+      }
+    }
+  });
+
+  async function handleFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (files.length === 0) return;
+
+    // JSON files
+    const jsonFiles = files.filter(f => f.name.endsWith(".json") || f.type === "application/json");
+    const imageFiles = files.filter(f => f.type.startsWith("image/"));
+
+    if (jsonFiles.length) {
+      try {
+        const text = await jsonFiles[0].text();
+        const data = JSON.parse(text);
+        currentResult = {
+          data,
+          json: JSON.stringify(data),
+          size: PixelJSON.utf8ByteLength(JSON.stringify(data)),
+          palette: data.palette || [],
+          encodeTime: 0,
+          metrics: { mse: 0, psnr: Infinity },
+          decodedImageData: PixelJSON.decodeToImageData(data),
+        };
+        showResult();
+        PixelJSON.log("Loaded PixelJSON from file", "ok");
+      } catch (e) {
+        PixelJSON.log("JSON load failed: " + e.message, "error");
+      }
+    }
+
+    if (imageFiles.length === 1) {
+      try {
+        currentImage = await PixelJSON.loadFile(imageFiles[0]);
+        drawPreview(currentImage.img);
+        PixelJSON.log(`Loaded ${currentImage.name} (${currentImage.size} bytes, ${currentImage.img.naturalWidth}×${currentImage.img.naturalHeight})`, "ok");
+        $("statOrig").textContent = formatBytes(currentImage.size);
+      } catch (e) {
+        PixelJSON.log(e.message, "error");
+      }
+    } else if (imageFiles.length > 1) {
+      batchFiles = imageFiles;
+      $("btnBatchEncode").disabled = false;
+      renderBatchList();
+      document.querySelector('.tab[data-tab="batch"]').click();
+      PixelJSON.log(`Queued ${imageFiles.length} images for batch`, "ok");
+    }
+  }
+
+  function drawPreview(img) {
+    const canvas = $("previewCanvas");
+    const ctx = canvas.getContext("2d");
+    const max = 640;
+    let w = img.naturalWidth, h = img.naturalHeight;
+    const scale = Math.min(1, max / Math.max(w, h));
+    canvas.width = Math.round(w * scale);
+    canvas.height = Math.round(h * scale);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  }
+
+  // URL loading
+  $("btnUrl").addEventListener("click", () => $("urlPanel").classList.toggle("hidden"));
+  $("btnLoadUrl").addEventListener("click", async () => {
+    const url = $("urlInput").value.trim();
+    if (!url) return;
+    $("btnLoadUrl").disabled = true;
+    abortController = new AbortController();
+    try {
+      PixelJSON.log("Fetching " + url + " …");
+      const maxBytes = (parseInt($("maxDownloadKb").value, 10) || 4096) * 1024;
+      const timeout = (parseInt($("urlTimeout").value, 10) || 15) * 1000;
+      currentImage = await PixelJSON.loadImageFromURL(url, {
+        maxBytes,
+        timeout,
+        signal: abortController.signal,
+        useCache: $("useCache").checked,
+      });
+      drawPreview(currentImage.img);
+      $("statOrig").textContent = formatBytes(currentImage.size);
+      PixelJSON.log(`Loaded remote image ${currentImage.name}`, "ok");
+    } catch (e) {
+      PixelJSON.log(e.message, "error");
+    } finally {
+      $("btnLoadUrl").disabled = false;
+      abortController = null;
+    }
+  });
+
+  $("btnClear").addEventListener("click", () => {
+    currentImage = null;
+    currentResult = null;
+    batchFiles = [];
+    $("previewCanvas").width = 0;
+    $("jsonView").textContent = "No data yet.";
+    $("paletteView").innerHTML = "";
+    $("btnDownloadJSON").disabled = true;
+    $("btnCopyJSON").disabled = true;
+    resetStats();
+    PixelJSON.log("Cleared");
+  });
+
+  $("btnCancel").addEventListener("click", () => {
+    if (abortController) abortController.abort();
+    $("btnCancel").disabled = true;
+    PixelJSON.log("Cancelled", "warn");
+  });
+
+  // Encode
+  $("btnEncode").addEventListener("click", async () => {
+    if (!currentImage) {
+      PixelJSON.log("Load an image first", "warn");
+      return;
+    }
+    $("btnEncode").disabled = true;
+    $("btnCancel").disabled = false;
+    $("progressBar").style.width = "10%";
+
+    try {
+      const settings = collectSettings();
+      PixelJSON.log("Encoding with " + settings.quantAlgo + " / " + settings.paletteSize + " colors …");
+
+      const { imageData, width, height } = PixelJSON.imageToImageData(
+        currentImage.img,
+        settings.maxWidth,
+        settings.maxHeight,
+        settings.keepAspect,
+        settings.resizeMode
+      );
+      $("progressBar").style.width = "40%";
+
+      // Optional target-size search
+      let result;
+      if (settings.targetBytes > 0) {
+        result = await searchForTargetSize(imageData, settings);
+      } else {
+        result = PixelJSON.encode(imageData, settings);
+      }
+
+      $("progressBar").style.width = "90%";
+      currentResult = result;
+      showResult();
+      PixelJSON.log(`Encoded ${width}×${height} → ${formatBytes(result.size)} (${result.data.encoding})`, "ok");
+    } catch (e) {
+      PixelJSON.log("Encode failed: " + e.message, "error");
+      console.error(e);
+    } finally {
+      $("btnEncode").disabled = false;
+      $("btnCancel").disabled = true;
+      $("progressBar").style.width = "100%";
+      setTimeout(() => $("progressBar").style.width = "0%", 600);
+    }
+  });
+
+  function collectSettings() {
+    return {
+      maxWidth: parseInt($("maxWidth").value, 10),
+      maxHeight: parseInt($("maxHeight").value, 10),
+      keepAspect: $("keepAspect").checked,
+      resizeMode: $("resizeMode").value,
+      quantAlgo: $("quantAlgo").value,
+      paletteSize: parseInt($("paletteSize").value, 10),
+      dither: $("dither").value,
+      alphaMode: $("alphaMode").value,
+      alphaThresh: parseInt($("alphaThresh").value, 10),
+      encodingMode: $("encodingMode").value,
+      targetBytes: parseInt($("targetBytes").value, 10) || 0,
+      perceptual: $("quantAlgo").value === "modmedian",
+    };
+  }
+
+  async function searchForTargetSize(baseImageData, settings) {
+    // Bounded search over a few resolutions / palette sizes
+    const candidates = [];
+    const scales = [1, 0.75, 0.5, 0.35];
+    const palettes = [settings.paletteSize, Math.max(8, Math.floor(settings.paletteSize / 2)), 16, 8];
+
+    for (const sc of scales) {
+      for (const pal of palettes) {
+        const w = Math.max(8, Math.round(baseImageData.width * sc));
+        const h = Math.max(8, Math.round(baseImageData.height * sc));
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(imageDataToCanvas(baseImageData), 0, 0, w, h);
+        const id = ctx.getImageData(0, 0, w, h);
+        const r = PixelJSON.encode(id, { ...settings, paletteSize: pal });
+        candidates.push(r);
+        if (r.size <= settings.targetBytes) {
+          PixelJSON.log(`Target met at ${w}×${h} / ${pal} colors`, "ok");
+          return r;
+        }
+      }
+    }
+    candidates.sort((a, b) => a.size - b.size);
+    PixelJSON.log(`Target not met; best size ${formatBytes(candidates[0].size)}`, "warn");
+    return candidates[0];
+  }
+
+  function imageDataToCanvas(id) {
+    const c = document.createElement("canvas");
+    c.width = id.width; c.height = id.height;
+    c.getContext("2d").putImageData(id, 0, 0);
+    return c;
+  }
+
+  function showResult() {
+    if (!currentResult) return;
+    const r = currentResult;
+    $("btnDownloadJSON").disabled = false;
+    $("btnCopyJSON").disabled = false;
+
+    // JSON view
+    $("jsonView").textContent = JSON.stringify(r.data, null, 2);
+
+    // Stats
+    $("statJson").textContent = formatBytes(r.size);
+    if (currentImage) {
+      $("statRatio").textContent = (currentImage.size / r.size).toFixed(2) + "×";
+    }
+    $("statDim").textContent = `${r.data.width}×${r.data.height}`;
+    $("statPal").textContent = r.palette.length;
+    $("statEnc").textContent = r.data.encoding;
+    $("statMse").textContent = r.metrics.mse.toFixed(2);
+    $("statPsnr").textContent = r.metrics.psnr === Infinity ? "∞" : r.metrics.psnr.toFixed(1) + " dB";
+    $("statTime").textContent = r.encodeTime.toFixed(1) + " ms";
+    $("statDecTime").textContent = "—";
+
+    // Palette
+    const pv = $("paletteView");
+    pv.innerHTML = "";
+    r.palette.forEach(c => {
+      const s = document.createElement("div");
+      s.className = "swatch";
+      s.style.background = `rgba(${c[0]},${c[1]},${c[2]},${(c[3]??255)/255})`;
+      s.title = `rgb(${c[0]},${c[1]},${c[2]}) a=${c[3]??255}`;
+      pv.appendChild(s);
+    });
+
+    // Encoded preview
+    const enc = r.decodedImageData;
+    drawImageData($("previewCanvas"), enc);
+    drawImageData($("encCanvas"), enc);
+
+    // Original resized for compare
+    if (currentImage) {
+      const { imageData } = PixelJSON.imageToImageData(
+        currentImage.img, r.data.width, r.data.height, true, "bilinear"
+      );
+      drawImageData($("origCanvas"), imageData);
+      drawDiff($("diffCanvas"), imageData, enc);
+    }
+
+    // Luau snippet
+    $("luauView").textContent = generateLuauSnippet(r.json);
+  }
+
+  function drawImageData(canvas, id) {
+    canvas.width = id.width;
+    canvas.height = id.height;
+    canvas.getContext("2d").putImageData(id, 0, 0);
+  }
+
+  function drawDiff(canvas, a, b) {
+    canvas.width = a.width;
+    canvas.height = a.height;
+    const ctx = canvas.getContext("2d");
+    const out = ctx.createImageData(a.width, a.height);
+    for (let i = 0; i < a.data.length; i += 4) {
+      const dr = Math.abs(a.data[i] - b.data[i]);
+      const dg = Math.abs(a.data[i+1] - b.data[i+1]);
+      const db = Math.abs(a.data[i+2] - b.data[i+2]);
+      const d = Math.min(255, (dr + dg + db) * 2);
+      out.data[i] = d;
+      out.data[i+1] = 0;
+      out.data[i+2] = 255 - d;
+      out.data[i+3] = 255;
+    }
+    ctx.putImageData(out, 0, 0);
+  }
+
+  function generateLuauSnippet(jsonStr) {
+    // Use long-string syntax so we don't need heavy escaping
+    const luauLongString = jsonStr.replace(/\]=/g, "] ="); // avoid accidental close
+    return `-- PixelJSON Pro generated snippet
+local PixelJSON = require(path.to.PixelJSON) -- adjust path to main.luau
+
+local jsonString = [=[` + jsonStr + `]=]
+
+local data, err = PixelJSON.Decode(jsonString)
+if not data then
+    warn("Decode error:", err)
+    return
+end
+
+local handle, renderErr = PixelJSON.Render(data, {
+    Parent = script.Parent, -- or your target Frame
+    MaxPixels = 10000,
+    Scale = 2,
+    UseRunRectangles = true,
+})
+if not handle then
+    warn("Render error:", renderErr)
+    return
+end
+
+-- Cleanup when done:
+-- PixelJSON.Destroy(handle)
+`;
+  }
+
+  // Download / Copy
+  $("btnDownloadJSON").addEventListener("click", () => {
+    if (!currentResult) return;
+    const blob = new Blob([currentResult.json], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = (currentImage?.name || "image").replace(/\.[^.]+$/, "") + ".pixel.json";
+    a.click();
+  });
+  $("btnCopyJSON").addEventListener("click", () => {
+    if (!currentResult) return;
+    navigator.clipboard.writeText(currentResult.json).then(() => PixelJSON.log("JSON copied", "ok"));
+  });
+  $("btnFormatJSON").addEventListener("click", () => {
+    if (currentResult) $("jsonView").textContent = JSON.stringify(currentResult.data, null, 2);
+  });
+  $("btnMinifyJSON").addEventListener("click", () => {
+    if (currentResult) $("jsonView").textContent = currentResult.json;
+  });
+  $("btnCopyLuauTab").addEventListener("click", () => {
+    navigator.clipboard.writeText($("luauView").textContent).then(() => PixelJSON.log("Luau snippet copied", "ok"));
+  });
+  $("btnCopyLuau").addEventListener("click", () => {
+    if (currentResult) {
+      navigator.clipboard.writeText(generateLuauSnippet(currentResult.json));
+      PixelJSON.log("Luau snippet copied", "ok");
+    }
+  });
+
+  // Batch
+  function renderBatchList() {
+    const el = $("batchList");
+    if (!batchFiles.length) { el.textContent = "No batch items."; return; }
+    el.innerHTML = batchFiles.map((f, i) => `<div>${i+1}. ${f.name} (${formatBytes(f.size)})</div>`).join("");
+  }
+  $("btnBatchEncode").addEventListener("click", async () => {
+    if (!batchFiles.length) return;
+    $("btnBatchEncode").disabled = true;
+    const settings = collectSettings();
+    for (let i = 0; i < batchFiles.length; i++) {
+      try {
+        const imgSrc = await PixelJSON.loadFile(batchFiles[i]);
+        const { imageData } = PixelJSON.imageToImageData(imgSrc.img, settings.maxWidth, settings.maxHeight, true, settings.resizeMode);
+        const r = PixelJSON.encode(imageData, settings);
+        const blob = new Blob([r.json], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = batchFiles[i].name.replace(/\.[^.]+$/, "") + ".pixel.json";
+        a.click();
+        PixelJSON.log(`Batch ${i+1}/${batchFiles.length}: ${formatBytes(r.size)}`, "ok");
+      } catch (e) {
+        PixelJSON.log(`Batch ${i+1} failed: ${e.message}`, "error");
+      }
+    }
+    $("btnBatchEncode").disabled = false;
+  });
+
+  // Pixel inspector
+  $("previewCanvas").addEventListener("mousemove", e => {
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / rect.width * canvas.width);
+    const y = Math.floor((e.clientY - rect.top) / rect.height * canvas.height);
+    if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return;
+    const ctx = canvas.getContext("2d");
+    const p = ctx.getImageData(x, y, 1, 1).data;
+    $("pixelInspector").textContent = `xy(${x},${y})  rgba(${p[0]},${p[1]},${p[2]},${p[3]})`;
+  });
+
+  // Single-file bundle download (literally this document)
+  $("btnDownloadBundle").addEventListener("click", () => {
+    const html = document.documentElement.outerHTML;
+    const blob = new Blob([html], { type: "text/html" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "PixelJSON-Pro.html";
+    a.click();
+  });
+
+  function formatBytes(n) {
+    if (n < 1024) return n + " B";
+    if (n < 1024*1024) return (n/1024).toFixed(1) + " KB";
+    return (n/(1024*1024)).toFixed(2) + " MB";
+  }
+  function resetStats() {
+    ["statOrig","statJson","statRatio","statDim","statPal","statEnc","statMse","statPsnr","statTime","statDecTime"]
+      .forEach(id => $(id).textContent = "—");
+  }
+
+  PixelJSON.log("PixelJSON Pro ready. Load an image to begin.", "ok");
+})();
+</script>
+</body>
+</html>
